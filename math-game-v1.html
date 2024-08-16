@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק חשבון לילדים</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            direction: rtl;
+        }
+        .screen {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+        }
+        h1, h2 {
+            color: #4a4a4a;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        input[type="text"], input[type="number"] {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        #game-grid {
+            display: grid;
+            gap: 2px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+        .grid-cell {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #ddd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .filled {
+            border-radius: 50%;
+        }
+        #game-status {
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: right;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #exercise {
+            direction: ltr;
+            unicode-bidi: bidi-override;
+            text-align: left;
+            font-size: 24px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu-screen" class="screen">
+        <h1>משחק חשבון לילדים</h1>
+        <button onclick="startGame()">התחל משחק</button>
+        <button onclick="showLeaderboard()">צפייה בלוח התוצאות</button>
+    </div>
+    
+    <div id="leaderboard-screen" class="screen" style="display:none;">
+        <h2>לוח תוצאות</h2>
+        <table id="leaderboard-table">
+            <tr>
+                <th>שם השחקן</th>
+                <th>תרגילים נכונים</th>
+                <th>טעויות</th>
+                <th>ניקוד</th>
+                <th>זמן משחק</th>
+            </tr>
+        </table>
+        <button onclick="showMenu()">חזרה לתפריט</button>
+    </div>
+    
+    <div id="game-screen" class="screen" style="display:none;">
+        <h2>בהצלחה בתרגיל :) !</h2>
+        <div id="exercise"></div>
+        <input type="number" id="answer-input" placeholder="הכנס תשובה">
+        <button onclick="checkAnswer()">בדוק</button>
+        <div id="game-grid"></div>
+        <div id="game-status"></div>
+        <button onclick="endGame()">סיום</button>
+    </div>
+
+    <script>
+        let currentPlayer = '';
+        let correctAnswers = 0;
+        let mistakes = 0;
+        let startTime;
+        let currentExercise = {};
+        let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
+
+        function showMenu() {
+            document.getElementById('menu-screen').style.display = 'block';
+            document.getElementById('leaderboard-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'none';
+        }
+
+        function showLeaderboard() {
+            document.getElementById('menu-screen').style.display = 'none';
+            document.getElementById('leaderboard-screen').style.display = 'block';
+            updateLeaderboardTable();
+        }
+
+        function updateLeaderboardTable() {
+            const table = document.getElementById('leaderboard-table');
+            while (table.rows.length > 1) {
+                table.deleteRow(1);
+            }
+            leaderboard.forEach(entry => {
+                const row = table.insertRow();
+                row.insertCell(0).textContent = entry.name;
+                row.insertCell(1).textContent = entry.correctAnswers;
+                row.insertCell(2).textContent = entry.mistakes;
+                row.insertCell(3).textContent = entry.score;
+                row.insertCell(4).textContent = entry.time;
+            });
+        }
+
+        function startGame() {
+            currentPlayer = prompt('הכנס את שמך:');
+            if (!currentPlayer) return;
+            
+            document.getElementById('menu-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            correctAnswers = 0;
+            mistakes = 0;
+            startTime = new Date();
+            updateGameStatus();
+            generateExercise();
+        }
+
+        function generateExercise() {
+            const operations = ['+', '-', '*', '/'];
+            const operation = operations[Math.floor(Math.random() * operations.length)];
+            let num1, num2;
+
+            switch(operation) {
+                case '+':
+                    num1 = Math.floor(Math.random() * 96) + 5; // 5 to 100
+                    num2 = Math.floor(Math.random() * (101 - num1)) + 1; // 1 to (101-num1)
+                    break;
+                case '-':
+                    num1 = Math.floor(Math.random() * 96) + 5; // 5 to 100
+                    num2 = Math.floor(Math.random() * num1) + 1; // 1 to num1
+                    break;
+                case '*':
+                    num1 = Math.floor(Math.random() * 16) + 5; // 5 to 20
+                    num2 = Math.floor(Math.random() * 16) + 5; // 5 to 20
+                    break;
+                case '/':
+                    num2 = Math.floor(Math.random() * 9) + 2; // 2 to 10
+                    num1 = num2 * (Math.floor(Math.random() * 9) + 2); // num2 * (2 to 10)
+                    break;
+            }
+
+            currentExercise = { num1, num2, operation };
+            document.getElementById('exercise').textContent = `${num1} ${operation} ${num2} = `;
+            document.getElementById('answer-input').value = '';
+            visualizeExercise();
+        }
+
+        function visualizeExercise() {
+            const grid = document.getElementById('game-grid');
+            grid.innerHTML = '';
+            const { num1, num2, operation } = currentExercise;
+            
+            let rows, cols = 15;
+            let color1 = 'red', color2 = 'blue';
+
+            switch(operation) {
+                case '+':
+                    rows = Math.ceil((num1 + num2) / cols);
+                    grid.style.gridTemplateColumns = `repeat(${cols}, 20px)`;
+                    for (let i = 0; i < rows * cols; i++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        if (i < num1) {
+                            cell.classList.add('filled');
+                            cell.style.backgroundColor = color1;
+                        } else if (i < num1 + num2) {
+                            cell.classList.add('filled');
+                            cell.style.backgroundColor = color2;
+                        }
+                        grid.appendChild(cell);
+                    }
+                    break;
+                case '-':
+                    rows = Math.ceil(num1 / cols);
+                    grid.style.gridTemplateColumns = `repeat(${cols}, 20px)`;
+                    for (let i = 0; i < rows * cols; i++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        if (i < num1) {
+                            cell.classList.add('filled');
+                            cell.style.backgroundColor = i < num2 ? color2 : color1;
+                        }
+                        grid.appendChild(cell);
+                    }
+                    break;
+                case '*':
+                    rows = num2;
+                    cols = num1;
+                    grid.style.gridTemplateColumns = `repeat(${cols}, 20px)`;
+                    for (let i = 0; i < rows * cols; i++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell filled';
+                        cell.style.backgroundColor = `hsl(${(Math.floor(i / cols) * 360 / rows) % 360}, 100%, 50%)`;
+                        grid.appendChild(cell);
+                    }
+                    break;
+                case '/':
+                    rows = num2;
+                    cols = num1 / num2;
+                    grid.style.gridTemplateColumns = `repeat(${cols}, 20px)`;
+                    for (let i = 0; i < rows * cols; i++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell filled';
+                        cell.style.backgroundColor = `hsl(${(Math.floor(i / cols) * 360 / rows) % 360}, 100%, 50%)`;
+                        grid.appendChild(cell);
+                    }
+                    break;
+            }
+        }
+
+        function checkAnswer() {
+            const userAnswer = parseInt(document.getElementById('answer-input').value);
+            const { num1, num2, operation } = currentExercise;
+            let correctAnswer;
+
+            switch(operation) {
+                case '+': correctAnswer = num1 + num2; break;
+                case '-': correctAnswer = num1 - num2; break;
+                case '*': correctAnswer = num1 * num2; break;
+                case '/': correctAnswer = num1 / num2; break;
+            }
+
+            if (userAnswer === correctAnswer) {
+                correctAnswers++;
+                alert('נכון! כל הכבוד!');
+            } else {
+                mistakes++;
+                alert(`לא נכון. התשובה הנכונה היא ${correctAnswer}`);
+            }
+
+            updateGameStatus();
+            generateExercise();
+        }
+
+        function updateGameStatus() {
+            const status = document.getElementById('game-status');
+            const currentTime = new Date();
+            const timeElapsed = Math.floor((currentTime - startTime) / 1000);
+            status.textContent = `שחקן: ${currentPlayer} | תרגילים נכונים: ${correctAnswers} | טעויות: ${mistakes} | ניקוד: ${correctAnswers - mistakes} | זמן: ${timeElapsed} שניות`;
+        }
+
+        function endGame() {
+            const endTime = new Date();
+            const totalTime = Math.floor((endTime - startTime) / 1000);
+            const score = correctAnswers - mistakes;
+
+            leaderboard.push({
+                name: currentPlayer,
+                correctAnswers: correctAnswers,
+                mistakes: mistakes,
+                score: score,
+                time: `${totalTime} שניות`
+            });
+
+            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard = leaderboard.slice(0, 10);  // Keep only top 10 scores
+            localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
+
+            alert(`המשחק הסתיים! הניקוד שלך: ${score}`);
+            showMenu();
+        }
+
+        showMenu();  // Start by showing the menu
+    </script>
+</body>
+</html>
